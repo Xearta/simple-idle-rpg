@@ -37,6 +37,10 @@ public class GameController : MonoBehaviour
 
     public Animator coinExplode;
 
+    // Menus
+    public CanvasGroup upgradesGroup;
+    public CanvasGroup settingsGroup;
+
     // Offline
     public DateTime currentDate;
     public DateTime oldTime;
@@ -80,6 +84,13 @@ public class GameController : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
+        // Set FPS to 60 (VSync)
+        Application.targetFrameRate = 60;
+        
+        // Menus
+        MenuChanger(upgradesGroup, true);
+        MenuChanger(settingsGroup, false);
+
         offlineBox.gameObject.SetActive(false);
         Load();
         killsMax = 10;
@@ -124,6 +135,38 @@ public class GameController : MonoBehaviour
         // Hit the enemy automatically after 1s, every 0.3s
         InvokeRepeating("Hit", 1.0f, 0.5f);
         Debug.Log("Starting Game");
+    }
+
+    // Turn menus on and off depending on what is passed in
+    public void MenuChanger(CanvasGroup x, bool y)
+    {
+        if (y)
+        {
+            x.alpha = 1;
+            x.interactable = true;
+            x.blocksRaycasts = true;
+            return;
+        }
+
+        x.alpha = 0;
+        x.interactable = false;
+        x.blocksRaycasts = false;
+    }
+
+    // Allow the user to change tabs depending on the id entered
+    public void ChangeTabs(string id)
+    {
+        switch (id)
+        {
+            case "upgrades":
+                MenuChanger(upgradesGroup, true);
+                MenuChanger(settingsGroup, false);
+                break;
+            case "settings":
+                MenuChanger(upgradesGroup, false);
+                MenuChanger(settingsGroup, true);
+                break;
+        }
     }
 
     public void Save()
