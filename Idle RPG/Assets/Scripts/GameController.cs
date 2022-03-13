@@ -16,12 +16,12 @@ public class GameController : MonoBehaviour
 
     public float kills;
     public float killsMax;
+    public float bossMultiplier;
 
     public int stage;
     public int stageMax;
     public int killsTotal;
-    public int bossMultiplier;
-
+    
     public Text coinsText;
     public Text powerText;
     public Text defenseText;
@@ -33,6 +33,7 @@ public class GameController : MonoBehaviour
 
     public Image healthBar;
     public Image stageBar;
+    public Image worldBar;
 
     public Animator coinExplode;
 
@@ -61,10 +62,6 @@ public class GameController : MonoBehaviour
     public double goldUpgradePower;
     public double trainingUpgradePower;
 
-    public Text powerUpgradeCostText;
-    public Text defenseUpgradeCostText;
-    public Text goldUpgradeCostText;
-    public Text trainingUpgradeCostText;
     public Text powerUpgradeLevelText;
     public Text defenseUpgradeLevelText;
     public Text goldUpgradeLevelText;
@@ -102,12 +99,13 @@ public class GameController : MonoBehaviour
         stageText.text = "Stage " + stage.ToString("F0");
         healthText.text = (playerHealth / maxPlayerHealth * 100).ToString("F0") + "%";
         killsTotalText.text = killsTotal.ToString("F0") + " Kills";
-        enemyHealthText.text = enemyHealth.ToString("F0") + " HP";
-        enemyPowerText.text = enemyPower.ToString("F0") + " Power";
+        enemyHealthText.text = Formatter(enemyHealth, "F2") + " HP";
+        enemyPowerText.text = Formatter(enemyPower, "F2") + " Pow";
 
-        // Update the player health bar and stage bar
+        // Update the bars
         healthBar.fillAmount = (float)(playerHealth / maxPlayerHealth);
         stageBar.fillAmount = kills / killsMax;
+        worldBar.fillAmount = (float)(stage) / 100f;
 
         // Save the game every 5s
         saveTime += Time.deltaTime;
@@ -119,7 +117,6 @@ public class GameController : MonoBehaviour
 
         // Upgrade Updates
         UpgradesUpdate();
-
     }
 
     public void StartGame()
@@ -181,6 +178,34 @@ public class GameController : MonoBehaviour
         LoadOfflineProduction();
     }
 
+    public void ResetWholeGame()
+    {
+        coins = 0;
+        power = 100;
+        defense = 10;
+        playerHealth = 100;
+        maxPlayerHealth = 100;
+        enemyHealth = 10;
+        enemyPower = 1;
+        powerUpgradeCost = 10;
+        defenseUpgradeCost = 10;
+        goldUpgradeCost = 10;
+        trainingUpgradeCost = 10;
+        kills = 0;
+        killsMax = 10;
+        killsTotal = 0;
+        stage = 1;
+        stageMax = 1;
+        powerUpgradeLevel = 1;
+        defenseUpgradeLevel = 1;
+        goldUpgradeLevel = 1;
+        trainingUpgradeLevel = 1;
+        offlineProgressCheck = 0;
+        bossMultiplier = 1;
+        Save();
+        StartGame();
+    }
+
     // Number Formatter
     public string Formatter(double number, string digits, string type = "letter")
     {
@@ -221,8 +246,8 @@ public class GameController : MonoBehaviour
 
             // Offline formula
             // Get max stage enemy health
-            double temp = 10 * System.Math.Pow(2, stageMax);
-            var coinsToEarn = System.Math.Ceiling(temp / 14) * idleTime * (goldUpgradeLevel * 1.2);
+            double temp = 10 * System.Math.Pow(1.5, stageMax-5);
+            var coinsToEarn = System.Math.Ceiling(temp / 250) * idleTime * (goldUpgradeLevel * 1.6);
             coins += coinsToEarn;
 
             TimeSpan timer = TimeSpan.FromSeconds(idleTime);
@@ -242,8 +267,12 @@ public class GameController : MonoBehaviour
         // Boss health multiplier
         if (stage % 5 == 0)
         {
-            bossMultiplier = 2;
+            bossMultiplier = 2f;
             killsMax = 1;
+            
+            // Slow down the boss fights near max stage for suspense
+            if (stage >= stageMax - 5)
+                Time.timeScale = 0.5f;
         } else 
         {
             bossMultiplier = 1;
@@ -264,7 +293,7 @@ public class GameController : MonoBehaviour
 
 
 
-        coins += System.Math.Ceiling(enemyHealth / 10) * goldUpgradePower;
+        coins += System.Math.Ceiling(enemyHealth / 50) * goldUpgradePower;
         kills += 1;
         killsTotal += 1;
 
@@ -283,29 +312,40 @@ public class GameController : MonoBehaviour
         isBossChecker();
 
         // Increase health and power depending on stage
-        enemyHealth = 10 * System.Math.Pow(1.5, stage-1) * bossMultiplier;
-        enemyPower = 1 * System.Math.Pow(2, stage-1) * bossMultiplier;
+        enemyHealth = 10 * System.Math.Pow(1.3, stage-1) * bossMultiplier;
+        enemyPower = 1 * System.Math.Pow(1.35, stage-1) * bossMultiplier;
     }
 
     // If player can kill enemy and how effectively
     public bool PowerCheck(double fullPower)
     {
-        if (fullPower > enemyHealth * 100)            // 100x power
+        if (fullPower > enemyHealth * 100)            // 100x power - 10x game speed
         {
-            // increase game time by 2x
+            Time.timeScale = 20;
         }
-        else if (fullPower > enemyHealth * 10)       // 10x power
+        else if (fullPower > enemyHealth * 10)       // 10x power - 5x game speed
         {
-            // increase game time by 1.5x
+            Time.timeScale = 10;
         }
-        else if (fullPower >= enemyHealth)          // power > enemyHealth
+        else if (fullPower > enemyHealth * 5)       // 5x power - 5x game speed
+        {
+            Time.timeScale = 5;  
+        }
+        else if (fullPower >= enemyHealth)          // power > enemyHealth - 1x game speed
         {
             // Set game time to 1.0x
+            Time.timeScale = 1;
+        } else if (fullPower >= enemyHealth / 2)    // power > enemyHealth / 2 - 0.5x game speed
+        {
+            playerHealth -= 33;
+            Debug.Log("MEGA HIT -- Power: " + fullPower + " | Enemy HP: " + enemyHealth);
+            //! Add this after animations are in to slow down the attack animation
+            // Time.timeScale = 0.5;                   
         }
         else                                    // Not enough power
         {
             // kill player and reset to stage 1
-            Debug.Log("Not enough power -- Power: " + power + " | Enemy HP: " + enemyHealth);
+            Debug.Log("Not enough power -- Power: " + fullPower + " | Enemy HP: " + enemyHealth);
             playerHealth = 0;
             CancelInvoke("Hit");
             StartCoroutine(PlayerDied());
@@ -350,7 +390,6 @@ public class GameController : MonoBehaviour
             return true;
         } else
         {
-            Debug.Log("player died...rut roh");
             playerHealth = 0;
             CancelInvoke("Hit");
             StartCoroutine(PlayerDied());
@@ -360,8 +399,8 @@ public class GameController : MonoBehaviour
 
     IEnumerator PlayerDied()
     {
-        Debug.Log("The player has died....");
         Debug.Log("Restarting Game. Wait 3 seconds.");
+        Time.timeScale = 1;
         yield return new WaitForSeconds(3.0f);
 
         stage = 1;
@@ -377,34 +416,55 @@ public class GameController : MonoBehaviour
 
         public void BuyUpgrade(string id)
     {
+        var b = 10;
+        var c = coins;
+
         switch (id)
         {
             case "powerUpgrade1":
-                if (coins >= powerUpgradeCost)
+                var r = 1.45;
+                var k = powerUpgradeLevel;
+                var n = System.Math.Floor(System.Math.Log(c * (r - 1) / (b * System.Math.Pow(r, k)) + 1, r));
+
+                var cost = b * (System.Math.Pow(r, k) * (System.Math.Pow(r, n) - 1) / (r - 1));
+
+                if (coins >= cost)
                 {
-                    coins -= powerUpgradeCost;
-                    powerUpgradeLevel++;
-                    powerUpgradeCost = System.Math.Ceiling(powerUpgradeCost * System.Math.Pow(1.07, powerUpgradeLevel));
+                    coins -= cost;
+                    powerUpgradeLevel += (int)n;
+                    powerUpgradeCost = System.Math.Ceiling(10 * System.Math.Pow(1.45, powerUpgradeLevel));
                 }
                 break;
             case "defenseUpgrade1":
-                if (coins >= defenseUpgradeCost)
+                var r2 = 1.5;
+                var k2 = defenseUpgradeLevel;
+                var n2 = System.Math.Floor(System.Math.Log(c * (r2 - 1) / (b * System.Math.Pow(r2, k2)) + 1, r2));
+
+                var cost2 = b * (System.Math.Pow(r2, k2) * (System.Math.Pow(r2, n2) - 1) / (r2 - 1));
+
+                if (coins >= cost2)
                 {
-                    coins -= defenseUpgradeCost;
-                    defenseUpgradeLevel++;
-                    defenseUpgradeCost = System.Math.Ceiling(defenseUpgradeCost * System.Math.Pow(1.09, defenseUpgradeLevel));
+                    coins -= cost2;
+                    defenseUpgradeLevel += (int)n2;
+                    defenseUpgradeCost = System.Math.Ceiling(10 * System.Math.Pow(1.5, defenseUpgradeLevel));
                 }
                 break;
             case "goldUpgrade1":
-                if (coins >= goldUpgradeCost)
+                var r3 = 2.4;
+                var k3 = goldUpgradeLevel;
+                var n3 = System.Math.Floor(System.Math.Log(c * (r3 - 1) / (b * System.Math.Pow(r3, k3)) + 1, r3));
+
+                var cost3 = b * (System.Math.Pow(r3, k3) * (System.Math.Pow(r3, n3) - 1) / (r3 - 1));
+
+                if (coins >= cost3)
                 {
-                    coins -= goldUpgradeCost;
-                    goldUpgradeLevel++;
-                    goldUpgradeCost = System.Math.Ceiling(goldUpgradeCost * System.Math.Pow(1.15, goldUpgradeLevel));
+                    coins -= cost3;
+                    goldUpgradeLevel += (int)n3;
+                    goldUpgradeCost = System.Math.Ceiling(10 * System.Math.Pow(2.4, goldUpgradeLevel));
                 }
                 break;
             case "trainingUpgrade1":
-                if (stageMax >= trainingUpgradeCost)
+                if (stageMax-1 >= trainingUpgradeCost)
                 {
                     trainingUpgradeLevel++;
                     trainingUpgradeCost += 10;
@@ -419,65 +479,105 @@ public class GameController : MonoBehaviour
     public void UpgradesUpdate()
     {
         // Text
-        powerUpgradeCostText.text = Formatter(powerUpgradeCost, "F2") + " coins";
         powerUpgradeLevelText.text = "Level : " + powerUpgradeLevel.ToString("F0");
         powerUpgradePowerText.text = "+" + Formatter(powerUpgradePower, "F2") + " Pow";
 
-        defenseUpgradeCostText.text = Formatter(defenseUpgradeCost, "F2") + " coins";
         defenseUpgradeLevelText.text = "Level : " + defenseUpgradeLevel.ToString("F0");
         defenseUpgradePowerText.text = "+" + Formatter(defenseUpgradePower, "F2") + " Def";
 
-        goldUpgradeCostText.text = Formatter(goldUpgradeCost, "F2") + " coins";
         goldUpgradeLevelText.text = "Level : " + goldUpgradeLevel.ToString("F0");
         goldUpgradePowerText.text = "x" + goldUpgradePower.ToString("F2") + " Coins";
 
-        trainingUpgradeCostText.text = trainingUpgradeCost.ToString("F0") + " Stages";
         trainingUpgradeLevelText.text = "Level : " + trainingUpgradeLevel.ToString("F0");
         trainingUpgradePowerText.text = "x" + trainingUpgradePower.ToString("F2") + " Pow + Def";
 
         // Buttons
         if (coins >= powerUpgradeCost)
+        {
             powerUpgradeButton.interactable = true;
-        else
+            powerUpgradeButton.GetComponentInChildren<Text>().text = "Buy Max (" + (GetMaxUpgradeCount(10, powerUpgradeLevel, 1.45)).ToString() + ")\n"
+                            + Formatter(GetMaxUpgradeCost(10, powerUpgradeLevel, 1.45), "F2") + " coins";
+        } else
+        {
             powerUpgradeButton.interactable = false;
+            powerUpgradeButton.GetComponentInChildren<Text>().text = "Cannot afford\n" + Formatter(powerUpgradeCost, "F2") + " coins";
+        }
         
         if (coins >= defenseUpgradeCost)
+        {
             defenseUpgradeButton.interactable = true;
-        else
+            defenseUpgradeButton.GetComponentInChildren<Text>().text = "Buy Max (" + (GetMaxUpgradeCount(10, defenseUpgradeLevel, 1.5)).ToString() + ")\n"
+                            + Formatter(GetMaxUpgradeCost(10, defenseUpgradeLevel, 1.5), "F2") + " coins";
+        } else
+        {
             defenseUpgradeButton.interactable = false;
+            defenseUpgradeButton.GetComponentInChildren<Text>().text = "Cannot afford\n" + Formatter(defenseUpgradeCost, "F2") + " coins";
+        }
 
         if (coins >= goldUpgradeCost)
+        {
             goldUpgradeButton.interactable = true;
-        else
+            goldUpgradeButton.GetComponentInChildren<Text>().text = "Buy Max (" + (GetMaxUpgradeCount(10, goldUpgradeLevel, 2.4)).ToString() + ")\n"
+                            + Formatter(GetMaxUpgradeCost(10, goldUpgradeLevel, 2.4), "F2") + " coins";
+        } else
+        {
             goldUpgradeButton.interactable = false;
+            goldUpgradeButton.GetComponentInChildren<Text>().text = "Cannot afford\n" + Formatter(goldUpgradeCost, "F2") + " coins";
+        }
 
-        if (stageMax >= trainingUpgradeCost)
+        if (stageMax - 1 >= trainingUpgradeCost)
+        {
             trainingUpgradeButton.interactable = true;
-        else
+            trainingUpgradeButton.GetComponentInChildren<Text>().text = "Buy\n" + Formatter(trainingUpgradeCost, "F2") + " Stages";
+        } else {
             trainingUpgradeButton.interactable = false;
+            trainingUpgradeButton.GetComponentInChildren<Text>().text = "Cannot afford\n" + Formatter(trainingUpgradeCost, "F2") + " Stages";
+        }
+
+
+
 
 
         // Power
         if (powerUpgradeLevel <= 1)
             powerUpgradePower = 0;
         else
-            powerUpgradePower = (powerUpgradeLevel-1) * 80;
+            powerUpgradePower = 50 * System.Math.Pow(1.25, powerUpgradeLevel - 1);
 
         if (defenseUpgradeLevel <= 1)
             defenseUpgradePower = 0;
         else
-            defenseUpgradePower = (defenseUpgradeLevel-1) * 160;
+            defenseUpgradePower = 50 * System.Math.Pow(1.25, defenseUpgradeLevel - 1);
 
         if (goldUpgradeLevel <= 1)
             goldUpgradePower = 1.00;
         else
-            goldUpgradePower = (goldUpgradeLevel-1) * 1.2;
+            goldUpgradePower = (goldUpgradeLevel-1) * 1.6;
 
         if (trainingUpgradeLevel <= 1)
             trainingUpgradePower = 1.00;
         else
             trainingUpgradePower = (trainingUpgradeLevel-1) * 2;
+    }
 
+    public double GetMaxUpgradeCount(int baseNum, int level, double rate)
+    {
+        var b = baseNum;
+        var c = coins;
+        var r = rate;
+        var k = level;
+        var n = System.Math.Floor(System.Math.Log(c * (r - 1) / (b * System.Math.Pow(r, k)) + 1, r));
+        return n;
+    }
 
+    public double GetMaxUpgradeCost(int baseNum, int level, double rate)
+    {
+        var b = baseNum;
+        var c = coins;
+        var r = rate;
+        var k = level;
+        var n = System.Math.Floor(System.Math.Log(c * (r - 1) / (b * System.Math.Pow(r, k)) + 1, r));
+        var cost = b * (System.Math.Pow(r, k) * (System.Math.Pow(r, n) - 1) / (r - 1));
+        return cost;
     }
 }
