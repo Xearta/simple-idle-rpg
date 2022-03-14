@@ -13,6 +13,7 @@ public class GameController : MonoBehaviour
     public double maxPlayerHealth;
     public double enemyHealth;
     public double enemyPower;
+    public double knowledgeBoost;
 
     public float kills;
     public float killsMax;
@@ -20,6 +21,9 @@ public class GameController : MonoBehaviour
 
     public int stage;
     public int stageMax;
+    public int world;
+    public int worldMax;
+    public int knowledgePoints;
 
     public Text coinsText;
     public Text powerText;
@@ -35,6 +39,7 @@ public class GameController : MonoBehaviour
 
     public Text killsTotalText;
     public Text totalDeathsText;
+    public Text knowledgePointsText;
 
 
     public Image healthBar;
@@ -86,6 +91,9 @@ public class GameController : MonoBehaviour
     public Button defenseUpgradeButton;
     public Button goldUpgradeButton;
     public Button trainingUpgradeButton;
+
+    // Rebirth
+    public GameObject rebirthScreen;
     
     // Start is called before the first frame update
     void Start()
@@ -104,16 +112,19 @@ public class GameController : MonoBehaviour
         maxPlayerHealth = 100;
         bossMultiplier = 1;
 
-        StartGame();
+        StartGame(1);
     }
 
     // Update is called once per frame
     void Update()
     {
+        double fullPower = ((power + powerUpgradePower) * trainingUpgradePower) * knowledgeBoost;
+        double fullDefense = ((defense + defenseUpgradePower) * trainingUpgradePower) * knowledgeBoost;
+
         // Update Text
         coinsText.text = Formatter(coins, "F2") + " Coins";
-        powerText.text = Formatter(((power + powerUpgradePower) * trainingUpgradePower), "F2") + " Pow";
-        defenseText.text = Formatter((defense + defenseUpgradePower) * trainingUpgradePower, "F2") + " Def";
+        powerText.text = Formatter(fullPower, "F2") + " Pow";
+        defenseText.text = Formatter(fullDefense, "F2") + " Def";
         stageText.text = "Stage " + stage.ToString("F0");
         healthText.text = (playerHealth / maxPlayerHealth * 100).ToString("F0") + "%";
         enemyHealthText.text = Formatter(enemyHealth, "F2") + " HP";
@@ -122,6 +133,7 @@ public class GameController : MonoBehaviour
         // Stats
         killsTotalText.text = "Total Kills: " + Formatter(killsTotal, "F2");
         totalDeathsText.text = "Total Deaths: " + Formatter(totalDeaths, "F2");
+        knowledgePointsText.text = "Knowledge Points: " + knowledgePoints + " (x" + knowledgeBoost + " Boost)";
 
 
         // Update the bars
@@ -141,8 +153,11 @@ public class GameController : MonoBehaviour
         UpgradesUpdate();
     }
 
-    public void StartGame()
+    public void StartGame(int selectedWorld)
     {
+        rebirthScreen.gameObject.SetActive(false);
+        world = selectedWorld;
+
         // Hit the enemy automatically after 1s, every 0.3s
         InvokeRepeating("Hit", 1.0f, 0.5f);
         Debug.Log("Starting Game");
@@ -193,6 +208,7 @@ public class GameController : MonoBehaviour
         PlayerPrefs.SetString("power", power.ToString());
         PlayerPrefs.SetString("defense", defense.ToString());
         PlayerPrefs.SetString("playerHealth", playerHealth.ToString());
+        PlayerPrefs.SetString("knowledgeBoost", knowledgeBoost.ToString());
         PlayerPrefs.SetString("enemyHealth", enemyHealth.ToString());
         PlayerPrefs.SetString("enemyPower", enemyPower.ToString());
         PlayerPrefs.SetString("kills", kills.ToString());
@@ -202,6 +218,9 @@ public class GameController : MonoBehaviour
         PlayerPrefs.SetString("trainingUpgradeCost", trainingUpgradeCost.ToString());
         PlayerPrefs.SetInt("stage", stage);
         PlayerPrefs.SetInt("stageMax", stageMax);
+        PlayerPrefs.SetInt("world", world);
+        PlayerPrefs.SetInt("worldMax", worldMax);
+        PlayerPrefs.SetInt("knowledgePoints", knowledgePoints);
         PlayerPrefs.SetInt("powerUpgradeLevel", powerUpgradeLevel);
         PlayerPrefs.SetInt("defenseUpgradeLevel", defenseUpgradeLevel);
         PlayerPrefs.SetInt("goldUpgradeLevel", goldUpgradeLevel);
@@ -223,6 +242,7 @@ public class GameController : MonoBehaviour
         power = double.Parse(PlayerPrefs.GetString("power", "100"));
         defense = double.Parse(PlayerPrefs.GetString("defense", "10"));
         playerHealth = double.Parse(PlayerPrefs.GetString("playerHealth", "100"));
+        knowledgeBoost = double.Parse(PlayerPrefs.GetString("knowledgeBoost", "1"));
         enemyHealth = double.Parse(PlayerPrefs.GetString("enemyHealth", "10"));
         enemyPower = double.Parse(PlayerPrefs.GetString("enemyPower", "1"));
         powerUpgradeCost = double.Parse(PlayerPrefs.GetString("powerUpgradeCost", "10"));
@@ -232,6 +252,9 @@ public class GameController : MonoBehaviour
         kills = float.Parse(PlayerPrefs.GetString("kills", "0"));
         stage = PlayerPrefs.GetInt("stage", 1);
         stageMax = PlayerPrefs.GetInt("stageMax", 1);
+        world = PlayerPrefs.GetInt("world", 1);
+        worldMax = PlayerPrefs.GetInt("worldMax", 1);
+        knowledgePoints = PlayerPrefs.GetInt("knowledgePoints", 0);
         powerUpgradeLevel = PlayerPrefs.GetInt("powerUpgradeLevel", 1);
         defenseUpgradeLevel = PlayerPrefs.GetInt("defenseUpgradeLevel", 1);
         goldUpgradeLevel = PlayerPrefs.GetInt("goldUpgradeLevel", 1);
@@ -271,7 +294,7 @@ public class GameController : MonoBehaviour
         offlineProgressCheck = 0;
         bossMultiplier = 1;
         Save();
-        StartGame();
+        StartGame(1);
     }
 
     // Number Formatter
@@ -348,10 +371,11 @@ public class GameController : MonoBehaviour
         }
     }
 
+    // Main method of game
     public void Hit()
     {
-        double fullPower = (power + powerUpgradePower) * trainingUpgradePower;
-        double fullDefense = (defense + defenseUpgradePower) * trainingUpgradePower;
+        double fullPower = ((power + powerUpgradePower) * trainingUpgradePower) * knowledgeBoost;
+        double fullDefense = ((defense + defenseUpgradePower) * trainingUpgradePower) * knowledgeBoost;
 
         if (!PowerCheck(fullPower))
             return;
@@ -361,7 +385,7 @@ public class GameController : MonoBehaviour
 
 
 
-        coins += System.Math.Ceiling(enemyHealth / 50) * goldUpgradePower;
+        coins += (System.Math.Ceiling(enemyHealth / 50) * goldUpgradePower) * knowledgeBoost;
         kills += 1;
         killsTotal += 1;
 
@@ -375,6 +399,11 @@ public class GameController : MonoBehaviour
 
             if (stage > stageMax)
                 stageMax = stage;
+            
+            if (stage > 100)
+            {
+                Rebirth();
+            }
         }
 
         isBossChecker();
@@ -410,7 +439,7 @@ public class GameController : MonoBehaviour
         } else if (fullPower >= enemyHealth / 2)    // power > enemyHealth / 2 - 0.5x game speed
         {
             playerHealth -= 33;
-            Debug.Log("MEGA HIT -- Power: " + fullPower + " | Enemy HP: " + enemyHealth);
+            Debug.Log("MEGA HIT -- Power: " + Formatter(fullPower, "F2") + " | Enemy HP: " + Formatter(enemyHealth, "F2"));
             //! Add this after animations are in to slow down the attack animation
             // Time.timeScale = 0.5;                   
         }
@@ -468,6 +497,7 @@ public class GameController : MonoBehaviour
         }
     }
 
+    // When the player dies, reset the run from stage 1 (mini-prestige)
     IEnumerator PlayerDied()
     {
         Debug.Log("Restarting Game. Wait 3 seconds.");
@@ -483,10 +513,10 @@ public class GameController : MonoBehaviour
         enemyPower = 1;
         bossMultiplier = 1;
 
-        StartGame();
+        StartGame(1);
     }
 
-        public void BuyUpgrade(string id)
+    public void BuyUpgrade(string id)
     {
         var b = 10;
         var c = coins;
@@ -552,13 +582,10 @@ public class GameController : MonoBehaviour
     {
         // Text
         powerUpgradeLevelText.text = "Level : " + powerUpgradeLevel.ToString("F0");
-        powerUpgradePowerText.text = Formatter(((power + powerUpgradePower) * trainingUpgradePower), "F2") + " Pow";
-
         defenseUpgradeLevelText.text = "Level : " + defenseUpgradeLevel.ToString("F0");
-        defenseUpgradePowerText.text = Formatter(((defense + defenseUpgradePower) * trainingUpgradePower), "F2") + " Def";
 
         goldUpgradeLevelText.text = "Level : " + goldUpgradeLevel.ToString("F0");
-        goldUpgradePowerText.text = "x" + goldUpgradePower.ToString("F2") + " Coins";
+        goldUpgradePowerText.text = "x" + (goldUpgradePower * knowledgeBoost).ToString("F2") + " Coins";
 
         trainingUpgradeLevelText.text = "Level : " + trainingUpgradeLevel.ToString("F0");
         trainingUpgradePowerText.text = "x" + trainingUpgradePower.ToString("F2") + " Pow + Def";
@@ -621,7 +648,7 @@ public class GameController : MonoBehaviour
         if (goldUpgradeLevel <= 1)
             goldUpgradePower = 1.00;
         else
-            goldUpgradePower = (goldUpgradeLevel-1) * 1.6;
+            goldUpgradePower = 3.33 * System.Math.Pow(1.18, goldUpgradeLevel - 1);
 
         if (trainingUpgradeLevel <= 1)
             trainingUpgradePower = 1.00;
@@ -649,4 +676,40 @@ public class GameController : MonoBehaviour
         var cost = b * (System.Math.Pow(r, k) * (System.Math.Pow(r, n) - 1) / (r - 1));
         return cost;
     }
+
+    public void Rebirth()
+    {
+        CancelInvoke("Hit");
+        rebirthScreen.gameObject.SetActive(true);
+        knowledgePoints += 1 * world; //FIXME Change this when I come up with a better formula
+        knowledgeBoost = knowledgePoints * 2;
+
+        // Reset Variables
+        coins = 0;
+        playerHealth = 100;
+        enemyHealth = 10;
+        enemyPower = 1;
+        stage = 1;
+        stageMax = 1;
+        kills = 0;
+        killsMax = 10;
+        powerUpgradeCost = 10;
+        defenseUpgradeCost = 10;
+        goldUpgradeCost = 10;
+        trainingUpgradeCost = 10;
+        powerUpgradeLevel = 1;
+        defenseUpgradeLevel = 1;
+        goldUpgradeLevel = 1;
+        trainingUpgradeLevel = 1;
+        offlineProgressCheck = 0;
+        bossMultiplier = 1;
+
+        Save();
+    }
+
+    public void ViewWorlds()
+    {
+        Debug.Log("Worlds coming soon...");
+    }
+
 }
