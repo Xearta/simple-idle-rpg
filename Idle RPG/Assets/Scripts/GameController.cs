@@ -20,16 +20,22 @@ public class GameController : MonoBehaviour
 
     public int stage;
     public int stageMax;
-    public int killsTotal;
-    
+
     public Text coinsText;
     public Text powerText;
     public Text defenseText;
     public Text stageText;
     public Text healthText;
-    public Text killsTotalText;
     public Text enemyHealthText;
     public Text enemyPowerText;
+
+    // Stats
+    public int killsTotal;
+    public int totalDeaths;
+
+    public Text killsTotalText;
+    public Text totalDeathsText;
+
 
     public Image healthBar;
     public Image stageBar;
@@ -39,6 +45,7 @@ public class GameController : MonoBehaviour
 
     // Menus
     public CanvasGroup upgradesGroup;
+    public CanvasGroup statsGroup;
     public CanvasGroup settingsGroup;
 
     // Offline
@@ -79,16 +86,16 @@ public class GameController : MonoBehaviour
     public Button defenseUpgradeButton;
     public Button goldUpgradeButton;
     public Button trainingUpgradeButton;
-
-
+    
     // Start is called before the first frame update
     void Start()
     {
         // Set FPS to 60 (VSync)
         Application.targetFrameRate = 60;
-        
+
         // Menus
         MenuChanger(upgradesGroup, true);
+        MenuChanger(statsGroup, false);
         MenuChanger(settingsGroup, false);
 
         offlineBox.gameObject.SetActive(false);
@@ -109,9 +116,13 @@ public class GameController : MonoBehaviour
         defenseText.text = Formatter((defense + defenseUpgradePower) * trainingUpgradePower, "F2") + " Def";
         stageText.text = "Stage " + stage.ToString("F0");
         healthText.text = (playerHealth / maxPlayerHealth * 100).ToString("F0") + "%";
-        killsTotalText.text = killsTotal.ToString("F0") + " Kills";
         enemyHealthText.text = Formatter(enemyHealth, "F2") + " HP";
         enemyPowerText.text = Formatter(enemyPower, "F2") + " Pow";
+
+        // Stats
+        killsTotalText.text = "Total Kills: " + Formatter(killsTotal, "F2");
+        totalDeathsText.text = "Total Deaths: " + Formatter(totalDeaths, "F2");
+
 
         // Update the bars
         healthBar.fillAmount = (float)(playerHealth / maxPlayerHealth);
@@ -160,10 +171,17 @@ public class GameController : MonoBehaviour
         {
             case "upgrades":
                 MenuChanger(upgradesGroup, true);
+                MenuChanger(statsGroup, false);
+                MenuChanger(settingsGroup, false);
+                break;
+            case "stats":
+                MenuChanger(upgradesGroup, false);
+                MenuChanger(statsGroup, true);
                 MenuChanger(settingsGroup, false);
                 break;
             case "settings":
                 MenuChanger(upgradesGroup, false);
+                MenuChanger(statsGroup, false);
                 MenuChanger(settingsGroup, true);
                 break;
         }
@@ -182,7 +200,6 @@ public class GameController : MonoBehaviour
         PlayerPrefs.SetString("defenseUpgradeCost", defenseUpgradeCost.ToString());
         PlayerPrefs.SetString("goldUpgradeCost", goldUpgradeCost.ToString());
         PlayerPrefs.SetString("trainingUpgradeCost", trainingUpgradeCost.ToString());
-        PlayerPrefs.SetInt("killsTotal", killsTotal);
         PlayerPrefs.SetInt("stage", stage);
         PlayerPrefs.SetInt("stageMax", stageMax);
         PlayerPrefs.SetInt("powerUpgradeLevel", powerUpgradeLevel);
@@ -190,6 +207,10 @@ public class GameController : MonoBehaviour
         PlayerPrefs.SetInt("goldUpgradeLevel", goldUpgradeLevel);
         PlayerPrefs.SetInt("trainingUpgradeLevel", trainingUpgradeLevel);
         PlayerPrefs.SetInt("offlineProgressCheck", offlineProgressCheck);
+
+        // Stats
+        PlayerPrefs.SetInt("killsTotal", killsTotal);
+        PlayerPrefs.SetInt("totalDeaths", totalDeaths);
 
         PlayerPrefs.SetString("offlineTime", DateTime.Now.ToBinary().ToString());
 
@@ -209,7 +230,6 @@ public class GameController : MonoBehaviour
         goldUpgradeCost = double.Parse(PlayerPrefs.GetString("goldUpgradeCost", "10"));
         trainingUpgradeCost = double.Parse(PlayerPrefs.GetString("trainingUpgradeCost", "10"));
         kills = float.Parse(PlayerPrefs.GetString("kills", "0"));
-        killsTotal = PlayerPrefs.GetInt("killsTotal", 0);
         stage = PlayerPrefs.GetInt("stage", 1);
         stageMax = PlayerPrefs.GetInt("stageMax", 1);
         powerUpgradeLevel = PlayerPrefs.GetInt("powerUpgradeLevel", 1);
@@ -217,6 +237,10 @@ public class GameController : MonoBehaviour
         goldUpgradeLevel = PlayerPrefs.GetInt("goldUpgradeLevel", 1);
         trainingUpgradeLevel = PlayerPrefs.GetInt("trainingUpgradeLevel", 1);
         offlineProgressCheck = PlayerPrefs.GetInt("offlineProgressCheck", 0);
+
+        // Stats
+        killsTotal = PlayerPrefs.GetInt("killsTotal", 0);
+        totalDeaths = PlayerPrefs.GetInt("totalDeaths", 0);
 
         LoadOfflineProduction();
     }
@@ -237,6 +261,7 @@ public class GameController : MonoBehaviour
         kills = 0;
         killsMax = 10;
         killsTotal = 0;
+        totalDeaths = 0;
         stage = 1;
         stageMax = 1;
         powerUpgradeLevel = 1;
@@ -290,7 +315,7 @@ public class GameController : MonoBehaviour
             // Offline formula
             // Get max stage enemy health
             double temp = 10 * System.Math.Pow(1.5, stageMax-5);
-            var coinsToEarn = System.Math.Ceiling(temp / 250) * idleTime * (goldUpgradeLevel * 1.6);
+            var coinsToEarn = System.Math.Ceiling(temp / 250) * idleTime;
             coins += coinsToEarn;
 
             TimeSpan timer = TimeSpan.FromSeconds(idleTime);
@@ -355,7 +380,7 @@ public class GameController : MonoBehaviour
         isBossChecker();
 
         // Increase health and power depending on stage
-        enemyHealth = 10 * System.Math.Pow(1.3, stage-1) * bossMultiplier;
+        enemyHealth = 10 * System.Math.Pow(1.35, stage-1) * bossMultiplier;
         enemyPower = 1 * System.Math.Pow(1.35, stage-1) * bossMultiplier;
     }
 
@@ -364,15 +389,19 @@ public class GameController : MonoBehaviour
     {
         if (fullPower > enemyHealth * 100)            // 100x power - 10x game speed
         {
-            Time.timeScale = 20;
+            Time.timeScale = 50;
         }
         else if (fullPower > enemyHealth * 10)       // 10x power - 5x game speed
         {
-            Time.timeScale = 10;
+            Time.timeScale = 20;
         }
         else if (fullPower > enemyHealth * 5)       // 5x power - 5x game speed
         {
             Time.timeScale = 5;  
+        }
+        else if (fullPower > enemyHealth * 2)       // 5x power - 3x game speed
+        {
+            Time.timeScale = 3;  
         }
         else if (fullPower >= enemyHealth)          // power > enemyHealth - 1x game speed
         {
@@ -388,7 +417,7 @@ public class GameController : MonoBehaviour
         else                                    // Not enough power
         {
             // kill player and reset to stage 1
-            Debug.Log("Not enough power -- Power: " + fullPower + " | Enemy HP: " + enemyHealth);
+            Debug.Log("Not enough power -- Power: " + Formatter(fullPower, "F2") + " | Enemy HP: " + Formatter(enemyHealth, "F2"));
             playerHealth = 0;
             CancelInvoke("Hit");
             StartCoroutine(PlayerDied());
@@ -405,18 +434,17 @@ public class GameController : MonoBehaviour
         {
             // Take no damage
         }
-        else if (fullDefense > enemyPower * 5)       // 5x defense - Take 0-3 dmg
+        else if (fullDefense > enemyPower * 5)       // 5x defense - Take 0-2 dmg
         {
             // playerHealth -= enemyPower / 2;
-            playerHealth -= UnityEngine.Random.Range(0, 4);
-            Debug.Log("small hit");
+            playerHealth -= UnityEngine.Random.Range(0, 3);
         }
-        else if (fullDefense >= enemyPower)          // defense > enemyPower - Take 3-7 dmg
+        else if (fullDefense >= enemyPower)          // defense > enemyPower - Take 3-5 dmg
         {
-            playerHealth -= UnityEngine.Random.Range(3, 8);
+            playerHealth -= UnityEngine.Random.Range(3, 6);
             Debug.Log("med hit");
         }
-        else if (fullDefense >= enemyPower / 2)     // defense > enemyPower / 2 - Take 8-15 dmg
+        else if (fullDefense <= enemyPower)     // defense > enemyPower / 2 - Take 8-15 dmg
         {
             playerHealth -= UnityEngine.Random.Range(8, 16);
             Debug.Log("big hit");
@@ -444,6 +472,7 @@ public class GameController : MonoBehaviour
     {
         Debug.Log("Restarting Game. Wait 3 seconds.");
         Time.timeScale = 1;
+        totalDeaths++;
         yield return new WaitForSeconds(3.0f);
 
         stage = 1;
@@ -523,10 +552,10 @@ public class GameController : MonoBehaviour
     {
         // Text
         powerUpgradeLevelText.text = "Level : " + powerUpgradeLevel.ToString("F0");
-        powerUpgradePowerText.text = "+" + Formatter(powerUpgradePower, "F2") + " Pow";
+        powerUpgradePowerText.text = Formatter(((power + powerUpgradePower) * trainingUpgradePower), "F2") + " Pow";
 
         defenseUpgradeLevelText.text = "Level : " + defenseUpgradeLevel.ToString("F0");
-        defenseUpgradePowerText.text = "+" + Formatter(defenseUpgradePower, "F2") + " Def";
+        defenseUpgradePowerText.text = Formatter(((defense + defenseUpgradePower) * trainingUpgradePower), "F2") + " Def";
 
         goldUpgradeLevelText.text = "Level : " + goldUpgradeLevel.ToString("F0");
         goldUpgradePowerText.text = "x" + goldUpgradePower.ToString("F2") + " Coins";
@@ -578,9 +607,6 @@ public class GameController : MonoBehaviour
         }
 
 
-
-
-
         // Power
         if (powerUpgradeLevel <= 1)
             powerUpgradePower = 0;
@@ -600,7 +626,7 @@ public class GameController : MonoBehaviour
         if (trainingUpgradeLevel <= 1)
             trainingUpgradePower = 1.00;
         else
-            trainingUpgradePower = (trainingUpgradeLevel-1) * 2;
+            trainingUpgradePower = System.Math.Pow(2, trainingUpgradeLevel - 1);
     }
 
     public double GetMaxUpgradeCount(int baseNum, int level, double rate)
